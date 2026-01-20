@@ -1,18 +1,42 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   PlusCircle,
   FileText
 } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { Project, ChangeOrder } from '../types';
-import { MOCK_CHANGE_ORDERS } from '../data/mock';
+import { supabase, isSupabaseReady } from '../lib/supabaseClient';
 
 interface ChangeOrderModuleProps {
   project: Project;
 }
 
 export function ChangeOrderModule({ project: _project }: ChangeOrderModuleProps) {
-  const cos: ChangeOrder[] = MOCK_CHANGE_ORDERS;
+  const [cos, setCos] = useState<ChangeOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadCOs = async () => {
+      if (!isSupabaseReady || !supabase) {
+        setError('Supabase is not configured.');
+        setLoading(false);
+        return;
+      }
+      const { data, error: coError } = await supabase
+        .from('change_orders')
+        .select('id, title, amount, status, created_at')
+        .eq('project_id', _project.id)
+        .order('created_at', { ascending: false });
+      if (coError) {
+        setError(coError.message);
+      } else {
+        setCos((data as ChangeOrder[]) || []);
+      }
+      setLoading(false);
+    };
+    loadCOs();
+  }, [_project.id]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -47,6 +71,9 @@ export function ChangeOrderModule({ project: _project }: ChangeOrderModuleProps)
             </div>
           </div>
         ))}
+        {loading && <div className="text-sm text-slate-500">Loading change orders...</div>}
+        {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
+        {!loading && cos.length === 0 && <div className="text-sm text-slate-500">No change orders yet.</div>}
       </div>
     </div>
   );

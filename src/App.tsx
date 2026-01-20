@@ -11,18 +11,20 @@ import { TeamList } from './components/TeamList';
 import { LoadingState } from './components/LoadingState';
 import { OnboardingTour } from './components/OnboardingTour';
 import { InviteModal } from './components/InviteModal';
-import { MOCK_PROFILE, MOCK_ORG, MOCK_PROJECT } from './data/mock';
 import { Profile, Organization, Project, View } from './types';
+import { supabase, isSupabaseReady } from './lib/supabaseClient';
 
 export default function App() {
-  const [profile] = useState<Profile>(MOCK_PROFILE);
-  const [activeOrg] = useState<Organization>(MOCK_ORG);
-  const [activeProject] = useState<Project>(MOCK_PROJECT);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [view, setView] = useState<View>('feed');
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 800);
@@ -34,12 +36,110 @@ export default function App() {
     setShowTour(Boolean(shouldShowTour));
   }, []);
 
+  useEffect(() => {
+    const loadContext = async () => {
+      if (!isSupabaseReady || !supabase) {
+        setContextError('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+        setLoading(false);
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user) {
+        setAuthRequired(true);
+        setLoading(false);
+        return;
+      }
+
+      const userId = userData.user.id;
+
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileError) {
+        setContextError(profileError.message);
+        setLoading(false);
+        return;
+      }
+
+      const { data: membership, error: membershipError } = await supabase
+        .from('project_members')
+        .select(`
+          project_id,
+          role,
+          projects (
+            id,
+            name,
+            org_id,
+            organizations (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+
+      if (membershipError) {
+        setContextError(membershipError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!membership?.projects) {
+        setContextError('No projects available for this user.');
+        setLoading(false);
+        return;
+      }
+
+      const projectRow: any = membership.projects;
+      const orgData = Array.isArray(projectRow?.organizations) ? projectRow.organizations[0] : projectRow?.organizations;
+      setActiveOrg(orgData ? { id: orgData.id, name: orgData.name } : null);
+      setActiveProject({ id: projectRow.id, name: projectRow.name, org_id: projectRow.org_id });
+      if (profileData) setProfile(profileData);
+      setContextError(null);
+      setLoading(false);
+    };
+
+    loadContext();
+  }, []);
+
   const closeTour = () => {
     localStorage.setItem('cv_seen_tour', 'true');
     setShowTour(false);
   };
 
   if (loading) return <LoadingState />;
+
+  if (contextError) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white px-4">
+        <div className="max-w-md text-center space-y-3">
+          <h2 className="text-xl font-black text-slate-900">Setup needed</h2>
+          <p className="text-slate-600 text-sm">{contextError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authRequired) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white px-4">
+        <div className="max-w-md text-center space-y-3">
+          <h2 className="text-xl font-black text-slate-900">Sign in required</h2>
+          <p className="text-slate-600 text-sm">Please sign in with Supabase Auth to view your projects.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile || !activeProject) {
+    return <LoadingState />;
+  }
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] text-slate-900 overflow-hidden font-sans">
@@ -48,7 +148,7 @@ export default function App() {
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex">
         <Sidebar 
-          activeOrg={activeOrg} 
+          activeOrg={activeOrg || { name: 'Workspace' }} 
           view={view} 
           setView={setView} 
           profile={profile}
@@ -66,7 +166,7 @@ export default function App() {
       {/* Mobile Sidebar (Slide-out) */}
       <div className={`fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out lg:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <Sidebar 
-          activeOrg={activeOrg} 
+          activeOrg={activeOrg || { name: 'Workspace' }} 
           view={view} 
           setView={(v: View) => { setView(v); setIsMobileMenuOpen(false); }} 
           profile={profile}
@@ -86,7 +186,7 @@ export default function App() {
         <div className="flex-1 flex overflow-hidden pb-16 lg:pb-0">
           <main className="flex-1 overflow-y-auto scrollbar-hide bg-slate-50/30">
             <div className="max-w-3xl mx-auto py-4 md:py-6 px-4">
-              {view === 'feed' && <SocialFeed user={profile} />}
+              {view === 'feed' && <SocialFeed user={profile} projectId={activeProject.id} />}
               {view === 'tasks' && <TaskBoard project={activeProject} />}
               {view === 'co' && <ChangeOrderModule project={activeProject} />}
               {view === 'rfis' && <RFIModule project={activeProject} />}

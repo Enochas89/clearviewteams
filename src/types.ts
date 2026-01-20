@@ -5,12 +5,14 @@ export interface Profile {
 }
 
 export interface Organization {
+  id?: string;
   name: string;
 }
 
 export interface Project {
   id: string;
   name: string;
+  org_id?: string;
 }
 
 export interface Post {
@@ -35,6 +37,8 @@ export interface ChangeOrder {
   title: string;
   amount: number;
   status: 'submitted' | 'approved' | 'rejected';
+  created_at?: string;
+  created_by?: string;
 }
 
 export type View = 'feed' | 'tasks' | 'co' | 'rfis' | 'notifications' | 'files';

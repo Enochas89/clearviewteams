@@ -1,32 +1,83 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Send,
   Camera,
   Paperclip,
 } from 'lucide-react';
 import { PostCard } from './PostCard';
-import { MOCK_POSTS } from '../data/mock';
 import { Profile, Post } from '../types';
+import { supabase, isSupabaseReady } from '../lib/supabaseClient';
 
 interface SocialFeedProps {
   user: Profile;
+  projectId: string;
 }
 
-export function SocialFeed({ user }: SocialFeedProps) {
-  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
+export function SocialFeed({ user, projectId }: SocialFeedProps) {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [newPost, setNewPost] = useState('');
+
+  useEffect(() => {
+    const loadPosts = async () => {
+      if (!isSupabaseReady || !supabase) {
+        setError('Supabase is not configured.');
+        setLoading(false);
+        return;
+      }
+      const { data, error: postsError } = await supabase
+        .from('posts')
+        .select('id, content, created_at, entity_type, profiles:profiles(full_name)')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (postsError) {
+        setError(postsError.message);
+      } else {
+        const normalized = (data || []).map((item: any) => ({
+          id: item.id,
+          content: item.content,
+          created_at: item.created_at,
+          entity_type: item.entity_type,
+          profiles: { full_name: Array.isArray(item.profiles) ? item.profiles[0]?.full_name || '' : item.profiles?.full_name || '' },
+        })) as Post[];
+        setPosts(normalized);
+      }
+      setLoading(false);
+    };
+
+    loadPosts();
+  }, [projectId]);
 
   const handleSubmit = () => {
     if (!newPost.trim()) return;
-    const post: Post = {
+    if (!supabase) {
+      setError('Supabase is not configured.');
+      return;
+    }
+    const optimistic: Post = {
       id: Date.now().toString(),
       content: newPost,
       created_at: new Date().toISOString(),
-      profiles: { full_name: user.full_name }
+      profiles: { full_name: user.full_name },
+      entity_type: undefined,
     };
-    setPosts([post, ...posts]);
+    setPosts([optimistic, ...posts]);
     setNewPost('');
+    supabase
+      .from('posts')
+      .insert({ project_id: projectId, user_id: user.id, content: newPost })
+      .then(({ error: insertError }) => {
+        if (insertError) {
+          setError(insertError.message);
+        }
+      });
   };
+
+  if (loading) {
+    return <div className="text-sm text-slate-500">Loading feed...</div>;
+  }
 
   return (
     <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -59,10 +110,13 @@ export function SocialFeed({ user }: SocialFeedProps) {
         </div>
       </div>
 
+      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
+
       <div className="space-y-4">
         {posts.map(post => (
           <PostCard key={post.id} post={post} />
         ))}
+        {posts.length === 0 && <div className="text-sm text-slate-500">No updates yet.</div>}
       </div>
     </div>
   );

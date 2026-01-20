@@ -1,16 +1,39 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   PlusCircle,
 } from 'lucide-react';
 import { Project, Task } from '../types';
-import { MOCK_TASKS } from '../data/mock';
+import { supabase, isSupabaseReady } from '../lib/supabaseClient';
 
 interface TaskBoardProps {
   project: Project;
 }
 
 export function TaskBoard({ project: _project }: TaskBoardProps) {
-  const tasks: Task[] = MOCK_TASKS;
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      if (!isSupabaseReady || !supabase) {
+        setError('Supabase is not configured.');
+        setLoading(false);
+        return;
+      }
+      const { data, error: tasksError } = await supabase
+        .from('tasks')
+        .select('id, title, status, priority')
+        .eq('project_id', _project.id);
+      if (tasksError) {
+        setError(tasksError.message);
+      } else {
+        setTasks((data as Task[]) || []);
+      }
+      setLoading(false);
+    };
+    loadTasks();
+  }, [_project.id]);
 
   const columns: Task['status'][] = ['todo', 'in-progress', 'review', 'done'];
 
@@ -39,6 +62,9 @@ export function TaskBoard({ project: _project }: TaskBoardProps) {
             <button className="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 flex items-center justify-center gap-2 hover:border-emerald-200 hover:text-emerald-500 transition-all">
               <PlusCircle size={16} /> <span className="text-xs font-bold">Clear Task</span>
             </button>
+            {loading && <div className="text-[11px] text-slate-400">Loading tasks...</div>}
+            {error && <div className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-lg px-2 py-1">{error}</div>}
+            {!loading && tasks.filter(t => t.status === col).length === 0 && <div className="text-[11px] text-slate-400">No tasks.</div>}
           </div>
         </div>
       ))}
