@@ -11,6 +11,7 @@ import { TeamList } from './components/TeamList';
 import { LoadingState } from './components/LoadingState';
 import { OnboardingTour } from './components/OnboardingTour';
 import { InviteModal } from './components/InviteModal';
+import { CreateProjectModal } from './components/CreateProjectModal';
 import { Profile, Organization, Project, View } from './types';
 import { supabase, isSupabaseReady } from './lib/supabaseClient';
 import { Auth } from '@supabase/auth-ui-react';
@@ -25,6 +26,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showCreateProject, setShowCreateProject] = useState(false);
   const [contextError, setContextError] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [missingProject, setMissingProject] = useState(false);
@@ -313,6 +315,7 @@ export default function App() {
           user={profile} 
           onMenuClick={() => setIsMobileMenuOpen(true)}
           onInviteClick={() => setShowInvite(true)}
+          onNewProject={() => setShowCreateProject(true)}
         />
         
         <div className="flex-1 flex overflow-hidden pb-16 lg:pb-0">
@@ -342,6 +345,17 @@ export default function App() {
 
       <OnboardingTour open={showTour} onClose={closeTour} />
       <InviteModal open={showInvite} onClose={() => setShowInvite(false)} project={activeProject} />
+      <CreateProjectModal
+        open={showCreateProject}
+        onClose={() => setShowCreateProject(false)}
+        user={profile}
+        onCreated={(org, proj) => {
+          setActiveOrg(org);
+          setActiveProject(proj);
+          setMissingProject(false);
+          setShowCreateProject(false);
+        }}
+      />
     </div>
   );
 }

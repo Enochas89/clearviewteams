@@ -3,7 +3,8 @@ import {
   Search,
   Bell,
   Menu,
-  UserPlus
+  UserPlus,
+  PlusCircle
 } from 'lucide-react';
 
 import { Project, Profile } from '../types';
@@ -13,9 +14,10 @@ interface HeaderProps {
   user: Profile;
   onMenuClick: () => void;
   onInviteClick: () => void;
+  onNewProject: () => void;
 }
 
-export function Header({ activeProject, user, onMenuClick, onInviteClick }: HeaderProps) {
+export function Header({ activeProject, user, onMenuClick, onInviteClick, onNewProject }: HeaderProps) {
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between shrink-0 z-30">
       <div className="flex items-center gap-3">
@@ -41,6 +43,12 @@ export function Header({ activeProject, user, onMenuClick, onInviteClick }: Head
         </div>
       </div>
       <div className="flex items-center gap-2 md:gap-3">
+        <button
+          onClick={onNewProject}
+          className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 font-bold text-xs bg-white hover:bg-slate-50 transition"
+        >
+          <PlusCircle size={16} /> New Project
+        </button>
         <button
           onClick={onInviteClick}
           className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-100 text-emerald-700 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 transition"
