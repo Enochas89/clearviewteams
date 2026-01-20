@@ -206,8 +206,6 @@ export default function App() {
     }
   };
 
-  if (loading) return <LoadingState />;
-
   if (contextError) {
     return (
       <div className="h-screen flex items-center justify-center bg-white px-4">
@@ -262,6 +260,8 @@ export default function App() {
       </div>
     );
   }
+
+  if (loading) return <LoadingState />;
 
   if (missingProject && profile) {
     return (
