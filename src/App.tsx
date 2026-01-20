@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
@@ -34,7 +34,7 @@ export default function App() {
   const [projectName, setProjectName] = useState('');
   const [projectError, setProjectError] = useState<string | null>(null);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     if (supabase) {
       await supabase.auth.signOut();
     }
@@ -44,110 +44,124 @@ export default function App() {
     setAuthRequired(true);
     setShowInvite(false);
     setShowCreateProject(false);
-  };
-
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+    setMissingProject(false);
+  }, [supabase]);
 
   useEffect(() => {
     const shouldShowTour = typeof window !== 'undefined' && !localStorage.getItem('cv_seen_tour');
     setShowTour(Boolean(shouldShowTour));
   }, []);
 
-  useEffect(() => {
-    const loadContext = async () => {
-      if (!isSupabaseReady || !supabase) {
-        setContextError('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
-        setLoading(false);
-        return;
-      }
-
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData?.user) {
-        setAuthRequired(true);
-        setLoading(false);
-        return;
-      }
-
-      const userId = userData.user.id;
-      const userEmail = userData.user.email ?? 'New User';
-
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profileError && profileError.code !== 'PGRST116') {
-        setContextError(profileError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!profileData) {
-        const { data: newProfile, error: insertProfileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: userId,
-            full_name: userEmail,
-            avatar_url: null,
-          })
-          .select('id, full_name, avatar_url')
-          .single();
-        if (insertProfileError) {
-          setContextError(insertProfileError.message);
-          setLoading(false);
-          return;
-        }
-        setProfile(newProfile);
-      } else {
-        setProfile(profileData);
-      }
-
-      const { data: membership, error: membershipError } = await supabase
-        .from('project_members')
-        .select(`
-          project_id,
-          role,
-          projects (
-            id,
-            name,
-            org_id,
-            organizations (
-              id,
-              name
-            )
-          )
-        `)
-        .eq('user_id', userId)
-        .limit(1)
-        .maybeSingle();
-
-      if (membershipError) {
-        setContextError(membershipError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!membership?.projects) {
-        setMissingProject(true);
-        setLoading(false);
-        return;
-      }
-
-      const projectRow: any = membership.projects;
-      const orgData = Array.isArray(projectRow?.organizations) ? projectRow.organizations[0] : projectRow?.organizations;
-      setActiveOrg(orgData ? { id: orgData.id, name: orgData.name } : null);
-      setActiveProject({ id: projectRow.id, name: projectRow.name, org_id: projectRow.org_id });
-      if (profileData) setProfile(profileData);
-      setContextError(null);
+  const loadContext = useCallback(async () => {
+    if (!isSupabaseReady || !supabase) {
+      setContextError('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
       setLoading(false);
-    };
+      return;
+    }
+    setLoading(true);
 
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) {
+      setAuthRequired(true);
+      setLoading(false);
+      return;
+    }
+
+    const userId = userData.user.id;
+    const userEmail = userData.user.email ?? 'New User';
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      setContextError(profileError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!profileData) {
+      const { data: newProfile, error: insertProfileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          full_name: userEmail,
+          avatar_url: null,
+        })
+        .select('id, full_name, avatar_url')
+        .single();
+      if (insertProfileError) {
+        setContextError(insertProfileError.message);
+        setLoading(false);
+        return;
+      }
+      setProfile(newProfile);
+    } else {
+      setProfile(profileData);
+    }
+
+    const { data: membership, error: membershipError } = await supabase
+      .from('project_members')
+      .select(`
+        project_id,
+        role,
+        projects (
+          id,
+          name,
+          org_id,
+          organizations (
+            id,
+            name
+          )
+        )
+      `)
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (membershipError) {
+      setContextError(membershipError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!membership?.projects) {
+      setMissingProject(true);
+      setLoading(false);
+      return;
+    }
+
+    const projectRow: any = membership.projects;
+    const orgData = Array.isArray(projectRow?.organizations) ? projectRow.organizations[0] : projectRow?.organizations;
+    setActiveOrg(orgData ? { id: orgData.id, name: orgData.name } : null);
+    setActiveProject({ id: projectRow.id, name: projectRow.name, org_id: projectRow.org_id });
+    setContextError(null);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
     loadContext();
-  }, []);
+  }, [loadContext]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        setAuthRequired(false);
+        setContextError(null);
+        setMissingProject(false);
+        loadContext();
+      }
+      if (event === 'SIGNED_OUT') {
+        handleSignOut();
+      }
+    });
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [supabase, loadContext, handleSignOut]);
 
   const closeTour = () => {
     localStorage.setItem('cv_seen_tour', 'true');
