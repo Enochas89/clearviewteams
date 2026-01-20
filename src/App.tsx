@@ -34,6 +34,18 @@ export default function App() {
   const [projectName, setProjectName] = useState('');
   const [projectError, setProjectError] = useState<string | null>(null);
 
+  const handleSignOut = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setProfile(null);
+    setActiveOrg(null);
+    setActiveProject(null);
+    setAuthRequired(true);
+    setShowInvite(false);
+    setShowCreateProject(false);
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 800);
     return () => clearTimeout(timer);
@@ -316,6 +328,7 @@ export default function App() {
           onMenuClick={() => setIsMobileMenuOpen(true)}
           onInviteClick={() => setShowInvite(true)}
           onNewProject={() => setShowCreateProject(true)}
+          onSignOut={handleSignOut}
         />
         
         <div className="flex-1 flex overflow-hidden pb-16 lg:pb-0">

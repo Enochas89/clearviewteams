@@ -4,7 +4,8 @@ import {
   Bell,
   Menu,
   UserPlus,
-  PlusCircle
+  PlusCircle,
+  LogOut
 } from 'lucide-react';
 
 import { Project, Profile } from '../types';
@@ -15,9 +16,10 @@ interface HeaderProps {
   onMenuClick: () => void;
   onInviteClick: () => void;
   onNewProject: () => void;
+  onSignOut: () => void;
 }
 
-export function Header({ activeProject, user, onMenuClick, onInviteClick, onNewProject }: HeaderProps) {
+export function Header({ activeProject, user, onMenuClick, onInviteClick, onNewProject, onSignOut }: HeaderProps) {
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between shrink-0 z-30">
       <div className="flex items-center gap-3">
@@ -54,6 +56,12 @@ export function Header({ activeProject, user, onMenuClick, onInviteClick, onNewP
           className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-100 text-emerald-700 font-bold text-xs bg-emerald-50 hover:bg-emerald-100 transition"
         >
           <UserPlus size={16} /> Invite
+        </button>
+        <button
+          onClick={onSignOut}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 font-bold text-xs bg-white hover:bg-slate-50 transition"
+        >
+          <LogOut size={16} /> Sign out
         </button>
         <div className="relative group hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
