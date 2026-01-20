@@ -13,6 +13,8 @@ import { OnboardingTour } from './components/OnboardingTour';
 import { InviteModal } from './components/InviteModal';
 import { Profile, Organization, Project, View } from './types';
 import { supabase, isSupabaseReady } from './lib/supabaseClient';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
 
 export default function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -128,10 +130,43 @@ export default function App() {
 
   if (authRequired) {
     return (
-      <div className="h-screen flex items-center justify-center bg-white px-4">
-        <div className="max-w-md text-center space-y-3">
-          <h2 className="text-xl font-black text-slate-900">Sign in required</h2>
-          <p className="text-slate-600 text-sm">Please sign in with Supabase Auth to view your projects.</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-xl p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <img src="/logo.webp" alt="Clear View logo" className="w-10 h-10 rounded-lg object-cover border border-slate-200" />
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-600 font-bold">Clear View</p>
+              <h2 className="text-lg font-black text-slate-900">Sign in</h2>
+              <p className="text-slate-500 text-sm">Access your projects and site activity.</p>
+            </div>
+          </div>
+          {supabase && (
+            <Auth
+              supabaseClient={supabase}
+              appearance={{
+                theme: ThemeSupa,
+                variables: {
+                  default: {
+                    colors: {
+                      brand: '#059669',
+                      brandAccent: '#047857',
+                    },
+                  },
+                },
+                className: {
+                  button: 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold',
+                  input: 'rounded-lg border-slate-200',
+                },
+              }}
+              providers={[]}
+              redirectTo={window.location.origin}
+            />
+          )}
+          {!supabase && (
+            <p className="text-sm text-red-600">
+              Supabase client is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
+            </p>
+          )}
         </div>
       </div>
     );
