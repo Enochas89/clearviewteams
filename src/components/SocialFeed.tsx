@@ -18,6 +18,8 @@ export function SocialFeed({ user, projectId }: SocialFeedProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newPost, setNewPost] = useState('');
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -75,6 +77,39 @@ export function SocialFeed({ user, projectId }: SocialFeedProps) {
       });
   };
 
+  const handleUpload = async (file: File) => {
+    if (!supabase) {
+      setUploadMessage('Supabase is not configured.');
+      return;
+    }
+    setUploading(true);
+    setUploadMessage(null);
+    const ext = file.name.split('.').pop();
+    const path = `${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from('attachments').upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+    if (uploadError) {
+      setUploadMessage('Upload failed: ' + uploadError.message);
+      setUploading(false);
+      return;
+    }
+    const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(path);
+    setUploadMessage(`Uploaded: ${publicUrlData?.publicUrl || file.name}`);
+    setUploading(false);
+  };
+
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const docInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const triggerPhotoPicker = () => {
+    fileInputRef.current?.click();
+  };
+  const triggerDocPicker = () => {
+    docInputRef.current?.click();
+  };
+
   if (loading) {
     return <div className="text-sm text-slate-500">Loading feed...</div>;
   }
@@ -95,8 +130,39 @@ export function SocialFeed({ user, projectId }: SocialFeedProps) {
             />
             <div className="flex items-center justify-between pt-3 border-t border-slate-100">
               <div className="flex gap-1 md:gap-2">
-                <button className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors"><Camera size={18}/></button>
-                <button className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors"><Paperclip size={18}/></button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUpload(file);
+                  }}
+                />
+                <input
+                  ref={docInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUpload(file);
+                  }}
+                />
+                <button
+                  onClick={triggerPhotoPicker}
+                  disabled={uploading}
+                  className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors disabled:opacity-50"
+                >
+                  <Camera size={18}/>
+                </button>
+                <button
+                  onClick={triggerDocPicker}
+                  disabled={uploading}
+                  className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors disabled:opacity-50"
+                >
+                  <Paperclip size={18}/>
+                </button>
               </div>
               <button 
                 onClick={handleSubmit}
@@ -111,6 +177,7 @@ export function SocialFeed({ user, projectId }: SocialFeedProps) {
       </div>
 
       {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
+      {uploadMessage && <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">{uploadMessage}</div>}
 
       <div className="space-y-4">
         {posts.map(post => (

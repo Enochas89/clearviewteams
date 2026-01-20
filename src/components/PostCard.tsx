@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   MoreVertical,
   ThumbsUp,
@@ -13,6 +13,11 @@ interface PostCardProps {
 }
 
 export function PostCard({ post }: PostCardProps) {
+  const [acks, setAcks] = useState(0);
+  const [discussCount, setDiscussCount] = useState(0);
+  const [acked, setAcked] = useState(false);
+  const [discussed, setDiscussed] = useState(false);
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 md:p-5 shadow-sm hover:shadow-md transition-all duration-300">
       <div className="flex items-center justify-between mb-3 md:mb-4">
@@ -48,11 +53,25 @@ export function PostCard({ post }: PostCardProps) {
       )}
 
       <div className="flex items-center gap-6 pt-3 md:pt-4 border-t border-slate-50">
-        <button className="flex items-center gap-2 text-xs md:text-sm font-bold text-slate-400 hover:text-emerald-600 transition-colors">
-          <ThumbsUp size={16} className="md:w-[18px] md:h-[18px]" /> <span>Ack</span>
+        <button
+          onClick={() => {
+            if (acked) return;
+            setAcked(true);
+            setAcks((c) => c + 1);
+          }}
+          className={`flex items-center gap-2 text-xs md:text-sm font-bold transition-colors ${acked ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600'}`}
+        >
+          <ThumbsUp size={16} className="md:w-[18px] md:h-[18px]" /> <span>Ack{acks ? ` (${acks})` : ''}</span>
         </button>
-        <button className="flex items-center gap-2 text-xs md:text-sm font-bold text-slate-400 hover:text-emerald-600 transition-colors">
-          <MessageSquare size={16} className="md:w-[18px] md:h-[18px]" /> <span>Discuss</span>
+        <button
+          onClick={() => {
+            if (discussed) return;
+            setDiscussed(true);
+            setDiscussCount((c) => c + 1);
+          }}
+          className={`flex items-center gap-2 text-xs md:text-sm font-bold transition-colors ${discussed ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600'}`}
+        >
+          <MessageSquare size={16} className="md:w-[18px] md:h-[18px]" /> <span>Discuss{discussCount ? ` (${discussCount})` : ''}</span>
         </button>
       </div>
     </div>
