@@ -27,6 +27,10 @@ export default function App() {
   const [showInvite, setShowInvite] = useState(false);
   const [contextError, setContextError] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
+  const [missingProject, setMissingProject] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [projectError, setProjectError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 800);
@@ -54,6 +58,7 @@ export default function App() {
       }
 
       const userId = userData.user.id;
+      const userEmail = userData.user.email ?? 'New User';
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -61,10 +66,30 @@ export default function App() {
         .eq('id', userId)
         .maybeSingle();
 
-      if (profileError) {
+      if (profileError && profileError.code !== 'PGRST116') {
         setContextError(profileError.message);
         setLoading(false);
         return;
+      }
+
+      if (!profileData) {
+        const { data: newProfile, error: insertProfileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            full_name: userEmail,
+            avatar_url: null,
+          })
+          .select('id, full_name, avatar_url')
+          .single();
+        if (insertProfileError) {
+          setContextError(insertProfileError.message);
+          setLoading(false);
+          return;
+        }
+        setProfile(newProfile);
+      } else {
+        setProfile(profileData);
       }
 
       const { data: membership, error: membershipError } = await supabase
@@ -93,7 +118,7 @@ export default function App() {
       }
 
       if (!membership?.projects) {
-        setContextError('No projects available for this user.');
+        setMissingProject(true);
         setLoading(false);
         return;
       }
@@ -113,6 +138,43 @@ export default function App() {
   const closeTour = () => {
     localStorage.setItem('cv_seen_tour', 'true');
     setShowTour(false);
+  };
+
+  const handleCreateProject = async () => {
+    if (!projectName.trim() || !supabase || !profile) return;
+    setCreatingProject(true);
+    setProjectError(null);
+    try {
+      const orgName = `${profile.full_name?.split(' ')[0] || 'Team'} Workspace`;
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .insert({ name: orgName })
+        .select('id, name')
+        .single();
+      if (orgError) throw orgError;
+
+      const { data: projData, error: projError } = await supabase
+        .from('projects')
+        .insert({ name: projectName.trim(), org_id: orgData.id })
+        .select('id, name, org_id')
+        .single();
+      if (projError) throw projError;
+
+      const { error: memberError } = await supabase
+        .from('project_members')
+        .insert({ project_id: projData.id, user_id: profile.id, role: 'admin' });
+      if (memberError) throw memberError;
+
+      setActiveOrg({ id: orgData.id, name: orgData.name });
+      setActiveProject({ id: projData.id, name: projData.name, org_id: projData.org_id });
+      setMissingProject(false);
+      setProjectName('');
+      setContextError(null);
+    } catch (err: any) {
+      setProjectError(err.message || 'Failed to create project');
+    } finally {
+      setCreatingProject(false);
+    }
   };
 
   if (loading) return <LoadingState />;
@@ -167,6 +229,41 @@ export default function App() {
               Supabase client is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
             </p>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  if (missingProject && profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-xl p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <img src="/logo.webp" alt="Clear View logo" className="w-10 h-10 rounded-lg object-cover border border-slate-200" />
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-600 font-bold">Clear View</p>
+              <h2 className="text-lg font-black text-slate-900">Create your first project</h2>
+              <p className="text-slate-500 text-sm">Set up a workspace to start posting updates.</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Project name</label>
+            <input
+              type="text"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              placeholder="Horizon Residential Phase I"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+          </div>
+          {projectError && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{projectError}</div>}
+          <button
+            onClick={handleCreateProject}
+            disabled={creatingProject || !projectName.trim()}
+            className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md shadow-emerald-100 disabled:opacity-60"
+          >
+            {creatingProject ? 'Creating...' : 'Create Project'}
+          </button>
         </div>
       </div>
     );
