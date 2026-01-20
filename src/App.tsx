@@ -45,6 +45,7 @@ export default function App() {
     setShowInvite(false);
     setShowCreateProject(false);
     setMissingProject(false);
+    setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
