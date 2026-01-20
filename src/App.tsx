@@ -34,10 +34,7 @@ export default function App() {
   const [projectName, setProjectName] = useState('');
   const [projectError, setProjectError] = useState<string | null>(null);
 
-  const handleSignOut = useCallback(async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
+  const clearAuthState = useCallback(() => {
     setProfile(null);
     setActiveOrg(null);
     setActiveProject(null);
@@ -46,6 +43,17 @@ export default function App() {
     setShowCreateProject(false);
     setMissingProject(false);
     setLoading(false);
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        // ignore
+      }
+    }
+    clearAuthState();
   }, [supabase]);
 
   useEffect(() => {
@@ -156,13 +164,13 @@ export default function App() {
         loadContext();
       }
       if (event === 'SIGNED_OUT') {
-        handleSignOut();
+        clearAuthState();
       }
     });
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [supabase, loadContext, handleSignOut]);
+  }, [supabase, loadContext, clearAuthState, handleSignOut]);
 
   const closeTour = () => {
     localStorage.setItem('cv_seen_tour', 'true');
